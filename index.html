@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>新药研发接力赛 · 排列组合小游戏</title>
+<style>
+  :root{ --accent:#3fd6b4; --gold:#ffd447; --line:rgba(255,255,255,.16); }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh; color:#e9f4ff;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1000px 500px at 15% -5%, #1a5578 0%, transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, #123f5c 0%, transparent 55%),
+      linear-gradient(165deg,#061627 0%,#04101b 60%,#020a12 100%);
+  }
+  .wrap{ max-width:1150px; margin:0 auto; padding:26px 16px 70px; }
+  h1{ margin:0 0 8px; font-size:clamp(21px,2.6vw,30px); letter-spacing:.5px; }
+  h1 em{ font-style:normal; color:var(--accent); }
+  .sub{ margin:0 0 20px; color:#9db4c8; font-size:13.5px; line-height:1.75; }
+  .panel{
+    border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035);
+    border-radius:18px; padding:16px;
+  }
+  .pHead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .pHead h2{ margin:0; font-size:15px; font-weight:600; }
+  .pHead .hint{ font-size:12px; color:#89a3b8; }
+  .pool{ display:flex; flex-wrap:wrap; gap:12px; min-height:110px; align-content:flex-start; }
+  .empty{ color:#7d95a9; font-size:13px; align-self:center; }
+
+  .card{
+    width:250px; border-radius:14px; padding:10px 12px; cursor:grab; user-select:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));
+    border:1px solid rgba(255,255,255,.14); box-shadow:0 6px 18px rgba(0,0,0,.28);
+    transition:transform .16s, box-shadow .16s, border-color .16s;
+  }
+  .card:hover{ transform:translateY(-2px); border-color:rgba(63,214,180,.45); }
+  .card.seq{ border-left:3px solid var(--accent); }
+  .card.par{ border-left:3px solid var(--gold); }
+  .card.selected{ border-color:var(--accent); box-shadow:0 0 0 2px rgba(63,214,180,.45); }
+  .card.dragging{ opacity:.45; }
+  .card .row{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+  .tag{ font-size:10.5px; padding:2px 7px; border-radius:999px; white-space:nowrap;
+        background:rgba(63,214,180,.16); color:#7ff0d5; }
+  .card.par .tag{ background:rgba(255,212,71,.16); color:#ffdf85; }
+  .clock{ font-size:11.5px; color:#bcd3e4; white-space:nowrap; }
+  .cname{ font-size:13.5px; font-weight:600; line-height:1.35; }
+  .cdesc{ font-size:11.5px; color:#95aec2; margin-top:4px; line-height:1.5; }
+
+  .board{ display:grid; grid-template-columns:1.35fr .95fr; gap:18px; margin-top:18px; }
+  @media (max-width:860px){ .board{ grid-template-columns:1fr; } }
+  .track{ display:flex; flex-direction:column; gap:10px; }
+  .track.par{ gap:12px; }
+  .slot{
+    display:flex; align-items:center; gap:10px; min-height:80px; padding:8px;
+    border:1.5px dashed var(--line); border-radius:14px; background:rgba(255,255,255,.02);
+    transition:border-color .18s, background .18s;
+  }
+  .slot.over{ border-color:var(--accent); background:rgba(63,214,180,.10); }
+  .slot.ok{ border-style:solid; border-color:var(--accent); box-shadow:inset 0 0 0 1px rgba(63,214,180,.35); }
+  .slot.bad{ border-style:solid; border-color:#ff7a7a; animation:shake .4s; }
+  .num{
+    flex:0 0 28px; height:28px; border-radius:50%; display:grid; place-items:center;
+    font-size:12.5px; font-weight:700; color:#04202b; background:var(--accent);
+  }
+  .slotBody{ flex:1; display:flex; align-items:center; min-width:0; }
+  .slotBody .card{ width:100%; }
+  .ph{ font-size:12.5px; color:#7d95a9; padding-left:4px; }
+  .sideHint{ font-size:12px; color:#89a3b8; margin:2px 0 0; line-height:1.6; }
+
+  .actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  button{
+    font:inherit; font-size:14px; padding:10px 22px; border:0; border-radius:999px; cursor:pointer;
+    background:linear-gradient(180deg,#4ee3bf,#2bb695); color:#04202b; font-weight:700;
+    box-shadow:0 8px 22px rgba(46,190,160,.28); transition:transform .15s, opacity .15s;
+  }
+  button:hover{ transform:translateY(-1px); }
+  button:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+  button.ghost{ background:transparent; color:#cfe2f0; border:1px solid rgba(255,255,255,.2);
+                box-shadow:none; font-weight:500; }
+  .msg{ font-size:13px; }
+  .msg.warn{ color:#ffb4b4; }
+  .msg.good{ color:#7ff0d5; }
+  .footer{ display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:13px; color:#a9c0d2; }
+  .footer b{ color:var(--accent); }
+
+  .overlay{ position:fixed; inset:0; z-index:50; display:grid; place-items:center;
+            padding:20px; background:rgba(2,8,14,.82); backdrop-filter:blur(6px); }
+  .overlay.hidden{ display:none; }
+  .winCard{
+    width:100%; max-width:520px; text-align:center; padding:28px 26px 32px; border-radius:24px;
+    border:1px solid rgba(255,212,71,.35); box-shadow:0 30px 80px rgba(0,0,0,.6);
+    background:
+      radial-gradient(600px 300px at 50% 0%, rgba(255,212,71,.18), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  }
+  .trophy{
+    width:min(280px,62vw); height:auto; display:block; margin:0 auto 4px;
+    animation:popIn .7s cubic-bezier(.2,1.5,.4,1) both, floaty 3s ease-in-out .7s infinite;
+  }
+  .winText{
+    margin:14px 0 0; font-size:clamp(16px,2.2vw,21px); font-weight:700; letter-spacing:.5px;
+    background:linear-gradient(90deg,#ffe9a3,#ffd447,#ffb300);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:fadeUp .8s ease .45s both;
+  }
+  .winSub{ margin:10px 0 0; font-size:12.5px; color:#a9c0d2; animation:fadeUp .8s ease .7s both; }
+  .winCard button{ margin-top:20px; }
+
+  @keyframes popIn{ 0%{opacity:0;transform:scale(.35) rotate(-8deg)} 60%{opacity:1;transform:scale(1.08) rotate(2deg)} 100%{opacity:1;transform:scale(1)} }
+  @keyframes floaty{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  @keyframes fadeUp{ from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  @keyframes shake{ 10%,90%{transform:translateX(-3px)} 30%,70%{transform:translateX(5px)} 50%{transform:translateX(-6px)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>新药研发接力赛 <em>Discovery → Launch</em></h1>
+  <p class="sub">
+    左侧 8 个模块有严格的先后关系，按顺序排好；右侧 3 个是贯穿全程的持续行为，顺序不限。
+    每张卡片上都标注了该模块通常需要的年限。全部放对，就会出现大奖杯。
+  </p>
+
+  <section class="panel">
+    <div class="pHead">
+      <h2>模块卡池</h2>
+      <span class="hint">拖动卡片到下方位置；手机端可先点卡片、再点空位。点击已放置的卡片可移回卡池。</span>
+    </div>
+    <div id="pool" class="pool"></div>
+  </section>
+
+  <section class="board">
+    <div class="panel">
+      <div class="pHead"><h2>① 主线流程 · 先后关系</h2><span class="hint">按时间顺序从第 1 步排到第 8 步</span></div>
+      <div id="seqTrack" class="track seq"></div>
+    </div>
+    <div class="panel">
+      <div class="pHead"><h2>② 并行轨道 · 持续行为</h2><span class="hint">顺序不限</span></div>
+      <div id="parTrack" class="track par"></div>
+      <p class="sideHint">持续行为没有固定年限，从研发早期一直延续到上市以后，与主线各步骤并行推进。</p>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button id="checkBtn">提交检查</button>
+    <button id="resetBtn" class="ghost">重新开始</button>
+    <span id="msg" class="msg"></span>
+  </div>
+
+  <div class="footer">
+    <span>主线累计耗时：<b id="totalYears">0 年</b></span>
+    <span>已放置：<b id="placedCount">0 / 11</b></span>
+  </div>
+</div>
+
+<div id="overlay" class="overlay hidden">
+  <div class="winCard">
+    <svg class="trophy" viewBox="0 0 200 232" role="img" aria-label="大奖杯">
+      <defs>
+        <linearGradient id="goldCup" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#fff6c4"/>
+          <stop offset="30%" stop-color="#ffd447"/>
+          <stop offset="65%" stop-color="#e2a70a"/>
+          <stop offset="100%" stop-color="#a97100"/>
+        </linearGradient>
+        <linearGradient id="goldBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffe27a"/>
+          <stop offset="100%" stop-color="#c08300"/>
+        </linearGradient>
+        <radialGradient id="goldGlow" cx="50%" cy="45%" r="50%">
+          <stop offset="0%" stop-color="#ffd447" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#ffd447" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="100" cy="105" r="96" fill="url(#goldGlow)"/>
+      <path d="M62 42 H42 C26 42 26 84 62 92" fill="none" stroke="url(#goldBar)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M138 42 H158 C174 42 174 84 138 92" fill="none" stroke="url(#goldBar)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M60 26 H140 V74 C140 104 122 122 100 122 C78 122 60 104 60 74 Z"
+            fill="url(#goldCup)" stroke="#8a5c00" stroke-width="2"/>
+      <path d="M78 40 C74 62 78 86 92 104" fill="none" stroke="#fffbe0"
+            stroke-width="6" stroke-linecap="round" opacity=".65"/>
+      <path d="M100 58 l7.6 15.4 17 2.5 -12.3 12 2.9 16.9 -15.2 -8 -15.2 8 2.9 -16.9 -12.3 -12 17 -2.5 z"
+            fill="#fff8cf" opacity=".92"/>
+      <path d="M94 122 h12 v26 h-12 z" fill="url(#goldBar)"/>
+      <path d="M70 148 H130 L142 176 H58 Z" fill="url(#goldBar)" stroke="#8a5c00" stroke-width="2"/>
+      <rect x="50" y="176" width="100" height="16" rx="6" fill="url(#goldCup)"/>
+      <rect x="50" y="192" width="100" height="6" rx="3" fill="#8a5c00" opacity=".5"/>
+    </svg>
+    <p class="winText">欢迎关注专注于新药研发的微信公众号GoAiLife</p>
+    <p class="winSub">你已经完整走完从 Discovery 到 Launch 的新药研发链路</p>
+    <button id="againBtn" class="ghost">再玩一次</button>
+  </div>
+</div>
+
+<script>
+/* ---------- 数据：8 个先后步骤 + 3 个持续行为 ---------- */
+const SEQ = [
+  { id:"s1", order:1, name:"靶点发现与验证",       years:2,   timeText:"约 2 年",     desc:"锁定与疾病相关的蛋白/基因靶点" },
+  { id:"s2", order:2, name:"先导化合物发现与优化", years:3,   timeText:"约 3 年",     desc:"从化合物库中筛选并修饰候选分子" },
+  { id:"s3", order:3, name:"临床前研究",           years:2,   timeText:"约 2 年",     desc:"细胞与动物实验：药效、药代、毒理" },
+  { id:"s4", order:4, name:"IND 申报与审批",       years:0.5, timeText:"约 0.5 年",   desc:"拿到人体试验许可，通常 3–6 个月" },
+  { id:"s5", order:5, name:"临床 I 期",            years:1,   timeText:"约 1 年",     desc:"20–100 名健康志愿者，评估安全性" },
+  { id:"s6", order:6, name:"临床 II 期",           years:2,   timeText:"约 2 年",     desc:"100–300 名患者，探索疗效与最佳剂量" },
+  { id:"s7", order:7, name:"临床 III 期",          years:3,   timeText:"约 3 年",     desc:"数百至数千名患者，确证疗效与安全性" },
+  { id:"s8", order:8, name:"NDA / BLA 申报与审评", years:1,   timeText:"约 1 年",     desc:"提交上市申请，接受监管机构审评" }
+].map(m => ({ ...m, type:"seq" }));
+
+const PAR = [
+  { id:"p1", name:"专利布局与知识产权保护",       timeText:"持续进行", desc:"贯穿全程，专利保护期通常约 20 年" },
+  { id:"p2", name:"CMC 工艺开发与质量体系",       timeText:"持续进行", desc:"与各阶段并行，直至商业化生产" },
+  { id:"p3", name:"上市后 IV 期临床与药物警戒",   timeText:"持续进行", desc:"获批后长期不良反应监测与真实世界数据" }
+].map(m => ({ ...m, type:"par", years:0 }));
+
+const ALL = [...SEQ, ...PAR];
+const state = { seq: new Array(SEQ.length).fill(null), par: new Array(PAR.length).fill(null) };
+let selected = null, dragId = null;
+
+const $ = s => document.querySelector(s);
+const poolEl = $("#pool"), seqEl = $("#seqTrack"), parEl = $("#parTrack");
+const msgEl = $("#msg"), overlay = $("#overlay"), checkBtn = $("#checkBtn");
+const totalEl = $("#totalYears"), countEl = $("#placedCount");
+
+const byId = id => ALL.find(m => m.id === id);
+const arrOf = zone => zone === "seq" ? state.seq : state.par;
+const fmt = n => (Math.round(n * 10) / 10).toString();
+
+function locate(id){
+  let i = state.seq.indexOf(id);
+  if (i > -1) return { zone:"seq", index:i };
+  i = state.par.indexOf(id);
+  if (i > -1) return { zone:"par", index:i };
+  return null;
+}
+
+/* ---------- 卡片 ---------- */
+function cardEl(m, inPool){
+  const el = document.createElement("div");
+  el.className = "card " + m.type + (selected === m.id ? " selected" : "");
+  el.draggable = true;
+  el.dataset.id = m.id;
+  el.title = inPool ? "点击选中后点空位放入，也可以直接拖动" : "点击移回卡池";
+  el.innerHTML = `
+    <div class="row">
+      <span class="tag">${m.type === "par" ? "持续行为" : "先后关系"}</span>
+      <span class="clock">⏱ ${m.timeText}</span>
+    </div>
+    <div class="cname">${m.name}</div>
+    <div class="cdesc">${m.desc}</div>`;
+
+  el.addEventListener("dragstart", e => {
+    dragId = m.id; selected = null;
+    el.classList.add("dragging");
+    e.dataTransfer.setData("text/plain", m.id);
+    e.dataTransfer.effectAllowed = "move";
+  });
+  el.addEventListener("dragend", () => {
+    dragId = null; el.classList.remove("dragging");
+    render();
+  });
+  el.addEventListener("click", () => {
+    if (inPool){
+      selected = (selected === m.id) ? null : m.id;
+      render();
+    } else {
+      returnToPool(m.id);
+    }
+  });
+  return el;
+}
+
+/* ---------- 放置逻辑 ---------- */
+function place(id, zone, index){
+  const from = locate(id);
+  const target = arrOf(zone);
+  const occupant = target[index];
+  if (from && from.zone === zone && from.index === index) return;
+  if (from) arrOf(from.zone)[from.index] = null;
+  if (occupant && from) arrOf(from.zone)[from.index] = occupant; // 交换位置
+  target[index] = id;
+  selected = null;
+  render();
+}
+
+function returnToPool(id){
+  const from = locate(id);
+  if (from) arrOf(from.zone)[from.index] = null;
+  selected = null;
+  render();
+}
+
+function bindSlot(slot, zone, index){
+  slot.addEventListener("dragover", e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    slot.classList.add("over");
+  });
+  slot.addEventListener("dragleave", () => slot.classList.remove("over"));
+  slot.addEventListener("drop", e => {
+    e.preventDefault();
+    slot.classList.remove("over");
+    const id = dragId || e.dataTransfer.getData("text/plain");
+    if (id && byId(id)) place(id, zone, index);
+  });
+  slot.addEventListener("click", e => {
+    if (e.target.closest(".card")) return;
+    if (selected) place(selected, zone, index);
+  });
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  msgEl.textContent = "";
+  msgEl.className = "msg";
+
+  // 卡池
+  poolEl.innerHTML = "";
+  const unplaced = ALL.filter(m => !locate(m.id));
+  if (!unplaced.length){
+    poolEl.innerHTML = `<div class="empty">卡池已空 —— 点「提交检查」验证你的排列</div>`;
+  } else {
+    unplaced.forEach(m => poolEl.appendChild(cardEl(m, true)));
+  }
+
+  // 主线槽位
+  seqEl.innerHTML = "";
+  state.seq.forEach((id, i) => {
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    const num = document.createElement("span");
+    num.className = "num"; num.textContent = i + 1;
+    slot.appendChild(num);
+
+    const body = document.createElement("div");
+    body.className = "slotBody";
+    if (id) body.appendChild(cardEl(byId(id), false));
+    else body.innerHTML = `<span class="ph">把「第 ${i + 1} 步」的模块放到这里</span>`;
+    slot.appendChild(body);
+
+    bindSlot(slot, "seq", i);
+    seqEl.appendChild(slot);
+  });
+
+  // 并行槽位
+  parEl.innerHTML = "";
+  state.par.forEach((id, i) => {
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    const body = document.createElement("div");
+    body.className = "slotBody";
+    if (id) body.appendChild(cardEl(byId(id), false));
+    else body.innerHTML = `<span class="ph">并行位 ${i + 1}：放一个「持续行为」模块</span>`;
+    slot.appendChild(body);
+
+    bindSlot(slot, "par", i);
+    parEl.appendChild(slot);
+  });
+
+  // 统计
+  const yrs = state.seq.filter(Boolean).reduce((a, id) => a + (byId(id).years || 0), 0);
+  totalEl.textContent = fmt(yrs) + " 年";
+  const placed = state.seq.filter(Boolean).length + state.par.filter(Boolean).length;
+  countEl.textContent = placed + " / " + ALL.length;
+}
+
+/* ---------- 校验 ---------- */
+function check(){
+  const complete = state.seq.every(Boolean) && state.par.every(Boolean);
+  if (!complete){
+    msgEl.textContent = "还有模块没归位，把卡池里的模块全部放上去再检查。";
+    msgEl.className = "msg warn";
+    return;
+  }
+  const seqNodes = [...seqEl.querySelectorAll(".slot")];
+  const parNodes = [...parEl.querySelectorAll(".slot")];
+  let ok = true;
+
+  state.seq.forEach((id, i) => {
+    const right = byId(id).order === i + 1;
+    seqNodes[i].classList.add(right ? "ok" : "bad");
+    if (!right) ok = false;
+  });
+  state.par.forEach((id, i) => {
+    const right = byId(id).type === "par";
+    parNodes[i].classList.add(right ? "ok" : "bad");
+    if (!right) ok = false;
+  });
+
+  if (ok){
+    msgEl.textContent = "完全正确！";
+    msgEl.className = "msg good";
+    checkBtn.disabled = true;
+    setTimeout(() => overlay.classList.remove("hidden"), 420);
+  } else {
+    msgEl.textContent = "绿色位置是对的，红色的需要调整（提示：持续行为只放右侧并行轨道）。";
+    msgEl.className = "msg warn";
+  }
+}
+
+/* ---------- 事件 ---------- */
+checkBtn.addEventListener("click", check);
+
+function reset(){
+  state.seq = new Array(SEQ.length).fill(null);
+  state.par = new Array(PAR.length).fill(null);
+  selected = null;
+  checkBtn.disabled = false;
+  overlay.classList.add("hidden");
+  render();
+}
+$("#resetBtn").addEventListener("click", reset);
+$("#againBtn").addEventListener("click", reset);
+
+poolEl.addEventListener("dragover", e => e.preventDefault());
+poolEl.addEventListener("drop", e => {
+  e.preventDefault();
+  const id = dragId || e.dataTransfer.getData("text/plain");
+  if (id && byId(id)) returnToPool(id);
+});
+poolEl.addEventListener("click", e => {
+  if (e.target === poolEl && selected){ selected = null; render(); }
+});
+
+render();
+</script>
+</body>
+  </html>
