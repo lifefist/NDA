@@ -8,7 +8,7 @@
   :root{ --accent:#3fd6b4; --gold:#ffd447; --line:rgba(255,255,255,.16); }
   *{ box-sizing:border-box; }
   body{
-    margin:0; min-height:100vh; color:#e9f4ff;
+    margin:0; min-height:100vh; color:#e9f4ff; overflow-x:hidden;
     font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
     background:
       radial-gradient(1000px 500px at 15% -5%, #1a5578 0%, transparent 60%),
@@ -19,10 +19,8 @@
   h1{ margin:0 0 8px; font-size:clamp(21px,2.6vw,30px); letter-spacing:.5px; }
   h1 em{ font-style:normal; color:var(--accent); }
   .sub{ margin:0 0 20px; color:#9db4c8; font-size:13.5px; line-height:1.75; }
-  .panel{
-    border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035);
-    border-radius:18px; padding:16px;
-  }
+  .panel{ border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035);
+          border-radius:18px; padding:16px; }
   .pHead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
   .pHead h2{ margin:0; font-size:15px; font-weight:600; }
   .pHead .hint{ font-size:12px; color:#89a3b8; }
@@ -36,22 +34,18 @@
     transition:transform .16s, box-shadow .16s, border-color .16s;
   }
   .card:hover{ transform:translateY(-2px); border-color:rgba(63,214,180,.45); }
-  .card.seq{ border-left:3px solid var(--accent); }
-  .card.par{ border-left:3px solid var(--gold); }
   .card.selected{ border-color:var(--accent); box-shadow:0 0 0 2px rgba(63,214,180,.45); }
   .card.dragging{ opacity:.45; }
-  .card .row{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
-  .tag{ font-size:10.5px; padding:2px 7px; border-radius:999px; white-space:nowrap;
-        background:rgba(63,214,180,.16); color:#7ff0d5; }
-  .card.par .tag{ background:rgba(255,212,71,.16); color:#ffdf85; }
-  .clock{ font-size:11.5px; color:#bcd3e4; white-space:nowrap; }
+  .clock{
+    display:inline-block; font-size:11.5px; color:#cfe2f0; padding:2px 9px;
+    border-radius:999px; background:rgba(255,255,255,.08); margin-bottom:7px;
+  }
   .cname{ font-size:13.5px; font-weight:600; line-height:1.35; }
   .cdesc{ font-size:11.5px; color:#95aec2; margin-top:4px; line-height:1.5; }
 
   .board{ display:grid; grid-template-columns:1.35fr .95fr; gap:18px; margin-top:18px; }
   @media (max-width:860px){ .board{ grid-template-columns:1fr; } }
   .track{ display:flex; flex-direction:column; gap:10px; }
-  .track.par{ gap:12px; }
   .slot{
     display:flex; align-items:center; gap:10px; min-height:80px; padding:8px;
     border:1.5px dashed var(--line); border-radius:14px; background:rgba(255,255,255,.02);
@@ -84,6 +78,9 @@
   .msg.good{ color:#7ff0d5; }
   .footer{ display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:13px; color:#a9c0d2; }
   .footer b{ color:var(--accent); }
+
+  /* 彩带画布 */
+  .confetti{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:60; }
 
   .overlay{ position:fixed; inset:0; z-index:50; display:grid; place-items:center;
             padding:20px; background:rgba(2,8,14,.82); backdrop-filter:blur(6px); }
@@ -118,33 +115,35 @@
 <div class="wrap">
   <h1>新药研发接力赛 <em>Discovery → Launch</em></h1>
   <p class="sub">
-    左侧 8 个模块有严格的先后关系，按顺序排好；右侧 3 个是贯穿全程的持续行为，顺序不限。
-    每张卡片上都标注了该模块通常需要的年限。全部放对，就会出现大奖杯。
+    左侧 8 个位置要按时间顺序排好，右侧 3 个位置顺序不限、但内容要对。
+    卡片每次都是随机打乱的，上面只给出该模块通常需要的时间，排在哪一步需要你自己判断。
   </p>
 
   <section class="panel">
     <div class="pHead">
       <h2>模块卡池</h2>
-      <span class="hint">拖动卡片到下方位置；手机端可先点卡片、再点空位。点击已放置的卡片可移回卡池。</span>
+      <span class="hint">每次刷新或重开都会重新随机排列；拖动卡片到下方位置，手机端可先点卡片再点空位，点击已放置的卡片可移回卡池。</span>
     </div>
     <div id="pool" class="pool"></div>
   </section>
 
   <section class="board">
     <div class="panel">
-      <div class="pHead"><h2>① 主线流程 · 先后关系</h2><span class="hint">按时间顺序从第 1 步排到第 8 步</span></div>
+      <div class="pHead"><h2>① 主线位置</h2><span class="hint">按时间顺序填满 8 个位置</span></div>
       <div id="seqTrack" class="track seq"></div>
     </div>
     <div class="panel">
-      <div class="pHead"><h2>② 并行轨道 · 持续行为</h2><span class="hint">顺序不限</span></div>
+      <div class="pHead"><h2>② 侧线位置</h2><span class="hint">顺序不限</span></div>
       <div id="parTrack" class="track par"></div>
-      <p class="sideHint">持续行为没有固定年限，从研发早期一直延续到上市以后，与主线各步骤并行推进。</p>
+      <p class="sideHint">这条轨道上的位置不分先后，放对就有效；放错会被标红。</p>
     </div>
   </section>
 
   <div class="actions">
     <button id="checkBtn">提交检查</button>
+    <button id="shuffleBtn" class="ghost">🔀 打乱卡池</button>
     <button id="resetBtn" class="ghost">重新开始</button>
+    <button id="muteBtn" class="ghost">🔊 音效开</button>
     <span id="msg" class="msg"></span>
   </div>
 
@@ -153,6 +152,8 @@
     <span>已放置：<b id="placedCount">0 / 11</b></span>
   </div>
 </div>
+
+<canvas id="confetti" class="confetti"></canvas>
 
 <div id="overlay" class="overlay hidden">
   <div class="winCard">
@@ -194,22 +195,24 @@
 </div>
 
 <script>
-/* ---------- 数据：8 个先后步骤 + 3 个持续行为 ---------- */
+/* ==================== 数据 ==================== */
+/* 主线：8 个先后步骤（时间取自行业常见口径） */
 const SEQ = [
-  { id:"s1", order:1, name:"靶点发现与验证",       years:2,   timeText:"约 2 年",     desc:"锁定与疾病相关的蛋白/基因靶点" },
-  { id:"s2", order:2, name:"先导化合物发现与优化", years:3,   timeText:"约 3 年",     desc:"从化合物库中筛选并修饰候选分子" },
-  { id:"s3", order:3, name:"临床前研究",           years:2,   timeText:"约 2 年",     desc:"细胞与动物实验：药效、药代、毒理" },
-  { id:"s4", order:4, name:"IND 申报与审批",       years:0.5, timeText:"约 0.5 年",   desc:"拿到人体试验许可，通常 3–6 个月" },
-  { id:"s5", order:5, name:"临床 I 期",            years:1,   timeText:"约 1 年",     desc:"20–100 名健康志愿者，评估安全性" },
-  { id:"s6", order:6, name:"临床 II 期",           years:2,   timeText:"约 2 年",     desc:"100–300 名患者，探索疗效与最佳剂量" },
-  { id:"s7", order:7, name:"临床 III 期",          years:3,   timeText:"约 3 年",     desc:"数百至数千名患者，确证疗效与安全性" },
-  { id:"s8", order:8, name:"NDA / BLA 申报与审评", years:1,   timeText:"约 1 年",     desc:"提交上市申请，接受监管机构审评" }
+  { id:"s1", order:1, name:"靶点发现与验证",       years:2,   timeText:"约 2 年",   desc:"锁定与疾病相关的蛋白/基因靶点" },
+  { id:"s2", order:2, name:"先导化合物发现与优化", years:3,   timeText:"约 3 年",   desc:"从化合物库中筛选并修饰候选分子" },
+  { id:"s3", order:3, name:"临床前研究",           years:2,   timeText:"约 2 年",   desc:"细胞与动物实验：药效、药代、毒理" },
+  { id:"s4", order:4, name:"IND 申报与审批",       years:0.5, timeText:"约 0.5 年", desc:"拿到人体试验许可，通常 3–6 个月" },
+  { id:"s5", order:5, name:"临床 I 期",            years:1,   timeText:"约 1 年",   desc:"20–100 名健康志愿者，评估安全性" },
+  { id:"s6", order:6, name:"临床 II 期",           years:2,   timeText:"约 2 年",   desc:"100–300 名患者，探索疗效与最佳剂量" },
+  { id:"s7", order:7, name:"临床 III 期",          years:3,   timeText:"约 3 年",   desc:"数百至数千名患者，确证疗效与安全性" },
+  { id:"s8", order:8, name:"NDA / BLA 申报与审评", years:1,   timeText:"约 1 年",   desc:"提交上市申请，接受监管机构审评" }
 ].map(m => ({ ...m, type:"seq" }));
 
+/* 侧线：3 个不占先后位置、与主线并行的动作 */
 const PAR = [
-  { id:"p1", name:"专利布局与知识产权保护",       timeText:"持续进行", desc:"贯穿全程，专利保护期通常约 20 年" },
-  { id:"p2", name:"CMC 工艺开发与质量体系",       timeText:"持续进行", desc:"与各阶段并行，直至商业化生产" },
-  { id:"p3", name:"上市后 IV 期临床与药物警戒",   timeText:"持续进行", desc:"获批后长期不良反应监测与真实世界数据" }
+  { id:"p1", name:"专利布局与知识产权保护",     timeText:"贯穿全程", desc:"从立项到上市后一直推进" },
+  { id:"p2", name:"CMC 工艺开发与质量体系",     timeText:"贯穿全程", desc:"与各阶段并行，直至商业化生产" },
+  { id:"p3", name:"上市后 IV 期临床与药物警戒", timeText:"贯穿全程", desc:"获批后的长期监测与真实世界数据" }
 ].map(m => ({ ...m, type:"par", years:0 }));
 
 const ALL = [...SEQ, ...PAR];
@@ -219,11 +222,29 @@ let selected = null, dragId = null;
 const $ = s => document.querySelector(s);
 const poolEl = $("#pool"), seqEl = $("#seqTrack"), parEl = $("#parTrack");
 const msgEl = $("#msg"), overlay = $("#overlay"), checkBtn = $("#checkBtn");
-const totalEl = $("#totalYears"), countEl = $("#placedCount");
+const totalEl = $("#totalYears"), countEl = $("#placedCount"), muteBtn = $("#muteBtn");
 
 const byId = id => ALL.find(m => m.id === id);
 const arrOf = zone => zone === "seq" ? state.seq : state.par;
 const fmt = n => (Math.round(n * 10) / 10).toString();
+
+/* ==================== 卡池随机洗牌 ==================== */
+let poolOrder = [];
+
+function shufflePool(){
+  poolOrder = ALL.map(m => m.id);
+  for (let i = poolOrder.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [poolOrder[i], poolOrder[j]] = [poolOrder[j], poolOrder[i]];
+  }
+}
+
+/* 保证每次洗出的排列都不一样（避免偶发与上一局重复的观感） */
+function reshufflePool(){
+  const before = poolOrder.join(",");
+  let guard = 0;
+  do { shufflePool(); guard++; } while (poolOrder.join(",") === before && guard < 20);
+}
 
 function locate(id){
   let i = state.seq.indexOf(id);
@@ -233,18 +254,15 @@ function locate(id){
   return null;
 }
 
-/* ---------- 卡片 ---------- */
+/* ==================== 卡片 ==================== */
 function cardEl(m, inPool){
   const el = document.createElement("div");
-  el.className = "card " + m.type + (selected === m.id ? " selected" : "");
+  el.className = "card" + (selected === m.id ? " selected" : "");
   el.draggable = true;
   el.dataset.id = m.id;
   el.title = inPool ? "点击选中后点空位放入，也可以直接拖动" : "点击移回卡池";
   el.innerHTML = `
-    <div class="row">
-      <span class="tag">${m.type === "par" ? "持续行为" : "先后关系"}</span>
-      <span class="clock">⏱ ${m.timeText}</span>
-    </div>
+    <span class="clock">⏱ ${m.timeText}</span>
     <div class="cname">${m.name}</div>
     <div class="cdesc">${m.desc}</div>`;
 
@@ -269,14 +287,14 @@ function cardEl(m, inPool){
   return el;
 }
 
-/* ---------- 放置逻辑 ---------- */
+/* ==================== 放置逻辑 ==================== */
 function place(id, zone, index){
   const from = locate(id);
   const target = arrOf(zone);
   const occupant = target[index];
   if (from && from.zone === zone && from.index === index) return;
   if (from) arrOf(from.zone)[from.index] = null;
-  if (occupant && from) arrOf(from.zone)[from.index] = occupant; // 交换位置
+  if (occupant && from) arrOf(from.zone)[from.index] = occupant; // 互换位置
   target[index] = id;
   selected = null;
   render();
@@ -308,21 +326,20 @@ function bindSlot(slot, zone, index){
   });
 }
 
-/* ---------- 渲染 ---------- */
+/* ==================== 渲染 ==================== */
 function render(){
   msgEl.textContent = "";
   msgEl.className = "msg";
 
-  // 卡池
+  // 卡池：按随机顺序展示尚未放置的模块
   poolEl.innerHTML = "";
-  const unplaced = ALL.filter(m => !locate(m.id));
+  const unplaced = poolOrder.map(byId).filter(m => m && !locate(m.id));
   if (!unplaced.length){
     poolEl.innerHTML = `<div class="empty">卡池已空 —— 点「提交检查」验证你的排列</div>`;
   } else {
     unplaced.forEach(m => poolEl.appendChild(cardEl(m, true)));
   }
 
-  // 主线槽位
   seqEl.innerHTML = "";
   state.seq.forEach((id, i) => {
     const slot = document.createElement("div");
@@ -334,14 +351,13 @@ function render(){
     const body = document.createElement("div");
     body.className = "slotBody";
     if (id) body.appendChild(cardEl(byId(id), false));
-    else body.innerHTML = `<span class="ph">把「第 ${i + 1} 步」的模块放到这里</span>`;
+    else body.innerHTML = `<span class="ph">第 ${i + 1} 步：待放置</span>`;
     slot.appendChild(body);
 
     bindSlot(slot, "seq", i);
     seqEl.appendChild(slot);
   });
 
-  // 并行槽位
   parEl.innerHTML = "";
   state.par.forEach((id, i) => {
     const slot = document.createElement("div");
@@ -349,21 +365,20 @@ function render(){
     const body = document.createElement("div");
     body.className = "slotBody";
     if (id) body.appendChild(cardEl(byId(id), false));
-    else body.innerHTML = `<span class="ph">并行位 ${i + 1}：放一个「持续行为」模块</span>`;
+    else body.innerHTML = `<span class="ph">侧位 ${i + 1}：待放置</span>`;
     slot.appendChild(body);
 
     bindSlot(slot, "par", i);
     parEl.appendChild(slot);
   });
 
-  // 统计
   const yrs = state.seq.filter(Boolean).reduce((a, id) => a + (byId(id).years || 0), 0);
   totalEl.textContent = fmt(yrs) + " 年";
   const placed = state.seq.filter(Boolean).length + state.par.filter(Boolean).length;
   countEl.textContent = placed + " / " + ALL.length;
 }
 
-/* ---------- 校验 ---------- */
+/* ==================== 校验 ==================== */
 function check(){
   const complete = state.seq.every(Boolean) && state.par.every(Boolean);
   if (!complete){
@@ -390,15 +405,230 @@ function check(){
     msgEl.textContent = "完全正确！";
     msgEl.className = "msg good";
     checkBtn.disabled = true;
-    setTimeout(() => overlay.classList.remove("hidden"), 420);
+    celebrate();
   } else {
-    msgEl.textContent = "绿色位置是对的，红色的需要调整（提示：持续行为只放右侧并行轨道）。";
+    msgEl.textContent = "绿色位置是对的，红色的需要调整。";
     msgEl.className = "msg warn";
   }
 }
 
-/* ---------- 事件 ---------- */
-checkBtn.addEventListener("click", check);
+function celebrate(){
+  startConfetti();
+  playCheer();
+  setTimeout(() => overlay.classList.remove("hidden"), 380);
+}
+
+/* ==================== 音效（Web Audio 合成） ==================== */
+let actx = null, muted = false;
+
+function ensureCtx(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!actx) actx = new AC();
+  if (actx.state === "suspended") actx.resume();
+  return actx;
+}
+
+function noiseBuffer(ctx, seconds){
+  const len = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  return buf;
+}
+
+/* 欢呼：人群底噪 + 密集掌声 + 欢呼哨音 + 上行和弦 */
+function playCheer(){
+  if (muted) return;
+  const ctx = ensureCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime + 0.02;
+
+  const master = ctx.createGain();
+  master.gain.value = 0.85;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.knee.value = 12; comp.ratio.value = 8;
+  comp.attack.value = 0.003; comp.release.value = 0.25;
+  master.connect(comp).connect(ctx.destination);
+
+  const dur = 3.4;
+  const nbuf = noiseBuffer(ctx, dur);
+
+  // 1) 人群底噪
+  const bed = ctx.createBufferSource(); bed.buffer = nbuf;
+  const bedF = ctx.createBiquadFilter(); bedF.type = "bandpass"; bedF.frequency.value = 900; bedF.Q.value = 0.7;
+  const bedG = ctx.createGain();
+  bedG.gain.setValueAtTime(0, t0);
+  bedG.gain.linearRampToValueAtTime(0.16, t0 + 0.25);
+  bedG.gain.linearRampToValueAtTime(0.12, t0 + 1.7);
+  bedG.gain.linearRampToValueAtTime(0, t0 + 3.2);
+  bed.connect(bedF).connect(bedG).connect(master);
+  bed.start(t0); bed.stop(t0 + dur);
+
+  // 2) 掌声（随机短促噪声脉冲）
+  for (let i = 0; i < 96; i++){
+    const t = t0 + Math.random() * 2.6;
+    const src = ctx.createBufferSource(); src.buffer = nbuf;
+    src.playbackRate.value = 0.9 + Math.random() * 0.5;
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass"; f.frequency.value = 1100 + Math.random() * 2600; f.Q.value = 1.2;
+    const g = ctx.createGain();
+    const peak = 0.04 + Math.random() * 0.09;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05 + Math.random() * 0.07);
+    src.connect(f).connect(g).connect(master);
+    src.start(t); src.stop(t + 0.18);
+  }
+
+  // 3) 欢呼哨音（上滑）
+  [0.15, 0.5, 0.95, 1.4].forEach((off, i) => {
+    const t = t0 + off;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(700 + i * 170, t);
+    o.frequency.exponentialRampToValueAtTime(1450 + i * 210, t + 0.35);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.07, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + 0.55);
+  });
+
+  // 4) 上行和弦（胜利感）
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    const t = t0 + i * 0.09;
+    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.11, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + 1.2);
+  });
+}
+
+/* ==================== 漫天彩带 ==================== */
+const canvas = $("#confetti");
+const cctx = canvas.getContext("2d");
+const COLORS = ["#ffd447","#ff7a7a","#3fd6b4","#7ec8ff","#ffffff","#ffb0e0","#b9a2ff","#ffe27a"];
+let parts = [], confettiRunning = false, emitUntil = 0, lastT = 0;
+
+function resizeCanvas(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(innerWidth * dpr);
+  canvas.height = Math.floor(innerHeight * dpr);
+  canvas.style.width = innerWidth + "px";
+  canvas.style.height = innerHeight + "px";
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+function spawn(n, spreadTop){
+  for (let i = 0; i < n; i++){
+    const w = 6 + Math.random() * 9;
+    parts.push({
+      x: Math.random() * innerWidth,
+      y: spreadTop ? -20 - Math.random() * innerHeight * 0.8 : -20 - Math.random() * 60,
+      w: w,
+      h: w * (0.35 + Math.random() * 0.85),
+      vx: (Math.random() - 0.5) * 70,
+      vy: 80 + Math.random() * 170,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 7,
+      sway: Math.random() * Math.PI * 2,
+      swaySpd: 0.8 + Math.random() * 1.8,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      ribbon: Math.random() < 0.4
+    });
+  }
+}
+
+function updateConfetti(dt){
+  const W = innerWidth, H = innerHeight;
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i];
+    p.vy = Math.min(p.vy + 150 * dt, 430);
+    p.sway += p.swaySpd * dt * 2;
+    p.x += (p.vx + Math.sin(p.sway) * 50) * dt;
+    p.y += p.vy * dt;
+    p.rot += p.vr * dt;
+    if (p.y > H + 70 || p.x < -90 || p.x > W + 90) parts.splice(i, 1);
+  }
+}
+
+function drawConfetti(){
+  cctx.clearRect(0, 0, innerWidth, innerHeight);
+  cctx.globalAlpha = 0.94;
+  for (const p of parts){
+    cctx.save();
+    cctx.translate(p.x, p.y);
+    cctx.rotate(p.rot);
+    cctx.fillStyle = p.color;
+    if (p.ribbon){
+      cctx.beginPath();
+      cctx.moveTo(-p.w / 2, 0);
+      cctx.quadraticCurveTo(0, p.h * 0.7, p.w / 2, 0);
+      cctx.lineTo(p.w / 2, p.h);
+      cctx.quadraticCurveTo(0, p.h * 1.7, -p.w / 2, p.h);
+      cctx.closePath();
+      cctx.fill();
+    } else {
+      cctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    }
+    cctx.restore();
+  }
+  cctx.globalAlpha = 1;
+}
+
+function confettiLoop(t){
+  const dt = Math.min(0.034, lastT ? (t - lastT) / 1000 : 0.016);
+  lastT = t;
+  if (performance.now() < emitUntil) spawn(6, false);
+  updateConfetti(dt);
+  drawConfetti();
+  if (parts.length || performance.now() < emitUntil){
+    requestAnimationFrame(confettiLoop);
+  } else {
+    confettiRunning = false;
+    cctx.clearRect(0, 0, innerWidth, innerHeight);
+  }
+}
+
+function startConfetti(){
+  spawn(90, true);
+  emitUntil = performance.now() + 3200;
+  if (!confettiRunning){
+    confettiRunning = true;
+    lastT = 0;
+    requestAnimationFrame(confettiLoop);
+  }
+}
+
+function stopConfetti(){
+  parts = [];
+  emitUntil = 0;
+  confettiRunning = false;
+  cctx.clearRect(0, 0, innerWidth, innerHeight);
+}
+
+/* ==================== 事件 ==================== */
+checkBtn.addEventListener("click", () => {
+  ensureCtx();   // 在用户手势中激活音频上下文，避免被浏览器拦截
+  check();
+});
+
+shuffleBtn.addEventListener("click", () => {
+  reshufflePool();
+  render();
+});
+
+muteBtn.addEventListener("click", () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? "🔇 音效关" : "🔊 音效开";
+  if (!muted) ensureCtx();
+});
 
 function reset(){
   state.seq = new Array(SEQ.length).fill(null);
@@ -406,6 +636,8 @@ function reset(){
   selected = null;
   checkBtn.disabled = false;
   overlay.classList.add("hidden");
+  stopConfetti();
+  reshufflePool();   // 每局重新随机打乱卡池
   render();
 }
 $("#resetBtn").addEventListener("click", reset);
@@ -421,7 +653,9 @@ poolEl.addEventListener("click", e => {
   if (e.target === poolEl && selected){ selected = null; render(); }
 });
 
+/* 初始化：先洗牌，再渲染 */
+shufflePool();
 render();
 </script>
 </body>
-  </html>
+</html>
